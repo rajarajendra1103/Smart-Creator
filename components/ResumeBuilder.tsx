@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   ArrowLeft, Printer, Trash2, Move, Save,
   User, Phone, Briefcase, GraduationCap, FolderGit2, Wrench, X,
@@ -66,34 +66,35 @@ const getDefaultStyle = (type: ToolType): CanvasItemStyle => {
 };
 
 export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
+  // Synchronous State Initialization to prevent flicker
+  const getInitialState = () => {
+    const savedData = localStorage.getItem('smart-creator-resume-draft');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            return { history: [parsed], stage: 'editor' as const };
+        }
+      } catch (e) {
+        console.error("Error loading draft", e);
+      }
+    }
+    return { history: [[]], stage: 'initial' as const };
+  };
+
+  const initialState = getInitialState();
+
   // Setup State
-  const [setupStage, setSetupStage] = useState<'initial' | 'templates' | 'editor'>('initial');
+  const [setupStage, setSetupStage] = useState<'initial' | 'templates' | 'editor'>(initialState.stage);
 
   // History Management
-  const [history, setHistory] = useState<CanvasItem[][]>([[]]);
+  const [history, setHistory] = useState<CanvasItem[][]>(initialState.history);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
 
   // QR Modal State
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
-
-  // Load from local storage on mount
-  useEffect(() => {
-    const savedData = localStorage.getItem('smart-creator-resume-draft');
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-            setHistory([parsed]);
-            setHistoryIndex(0);
-            setSetupStage('editor'); // Skip setup if draft exists
-        }
-      } catch (e) {
-        console.error("Error loading draft", e);
-      }
-    }
-  }, []);
 
   const items = history[historyIndex];
   

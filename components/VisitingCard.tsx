@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   ArrowLeft, Download, Undo, Redo, 
   Type, Image as ImageIcon, Square, Circle, Minus, 
@@ -47,12 +47,38 @@ const SIDEBAR_TOOLS = [
 ];
 
 export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
+  // Synchronous State Initialization to prevent flicker
+  const getInitialState = () => {
+      const savedData = localStorage.getItem('smart-creator-card-draft');
+      let initialHistory: CanvasItem[][] = [[]];
+      let initialLayout = 'single';
+      let initialShowModal = true;
+
+      if (savedData) {
+          try {
+              const parsed = JSON.parse(savedData);
+              if (Array.isArray(parsed)) {
+                  initialHistory = [parsed];
+                  initialShowModal = false;
+              } else if (parsed.items) {
+                  // Handle legacy vs new
+                  initialHistory = [Array.isArray(parsed.items) ? parsed.items : []];
+                  initialLayout = parsed.layoutMode || 'single';
+                  initialShowModal = false;
+              }
+          } catch(e) { console.error("Error loading draft", e); }
+      }
+      return { history: initialHistory, layout: initialLayout, showModal: initialShowModal };
+  };
+  
+  const initialState = getInitialState();
+
   // Setup & Layout State
-  const [showLayoutModal, setShowLayoutModal] = useState(true);
-  const [layoutMode, setLayoutMode] = useState<'single' | 'double'>('single');
+  const [showLayoutModal, setShowLayoutModal] = useState(initialState.showModal);
+  const [layoutMode, setLayoutMode] = useState<'single' | 'double'>(initialState.layout as any);
 
   // History & Editor State
-  const [history, setHistory] = useState<CanvasItem[][]>([[]]);
+  const [history, setHistory] = useState<CanvasItem[][]>(initialState.history);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
@@ -72,32 +98,8 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
 
-  const items = history[historyIndex];
+  const items = history[historyIndex] || [];
   const selectedItem = items.find(i => i.id === selectedItemId);
-
-  // Load default template or local storage on mount
-  useEffect(() => {
-    const savedData = localStorage.getItem('smart-creator-card-draft');
-    if (savedData) {
-        try {
-            const parsed = JSON.parse(savedData);
-            // Handle legacy array format vs new object format
-            if (Array.isArray(parsed)) {
-                 setHistory([parsed]);
-                 setHistoryIndex(0);
-                 setShowLayoutModal(false);
-            } else if (parsed.items && parsed.layoutMode) {
-                 setHistory([parsed.items]);
-                 setHistoryIndex(0);
-                 setLayoutMode(parsed.layoutMode);
-                 setShowLayoutModal(false);
-            }
-        } catch(e) {
-            console.error("Failed to load saved draft", e);
-        }
-    }
-    // If no save data, showLayoutModal remains true
-  }, []);
 
   // --- Actions ---
 
@@ -355,8 +357,29 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
         if (clickedFront || clickedBack) {
             const tool = SIDEBAR_TOOLS.find(t => t.id === selectedTool);
             if (tool) {
+                // Apply specific styling based on the tool type for a better default look
+                let customStyle: Partial<CanvasItemStyle> = {};
+                switch(tool.id) {
+                    case 'NAME':
+                        customStyle = { fontSize: 24, fontWeight: 'bold' };
+                        break;
+                    case 'COMPANY':
+                        customStyle = { fontSize: 18, fontWeight: 'bold', textTransform: 'uppercase' };
+                        break;
+                    case 'TAGLINE':
+                        customStyle = { fontSize: 12, fontStyle: 'italic', color: '#555555' };
+                        break;
+                    case 'PHONE':
+                    case 'SEC_PHONE':
+                    case 'EMAIL':
+                    case 'WEBSITE':
+                    case 'ADDRESS':
+                        customStyle = { fontSize: 11 };
+                        break;
+                }
+
                 // Adjust x/y to center the text roughly where clicked
-                addItem('TEXT', { text: tool.defaultText }, {}, x - 50, y - 10);
+                addItem('TEXT', { text: tool.defaultText }, customStyle, x - 50, y - 10);
             }
             setSelectedTool(null);
         }
