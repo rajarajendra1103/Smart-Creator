@@ -797,7 +797,7 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
          
          content = (
            <div style={{ ...style, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Icon size={style.fontSize ? style.fontSize * 1.2 : 16} />
+              <Icon size={item.style?.fontSize ? item.style.fontSize * 1.2 : 16} />
               <span>{item.data.text}</span>
            </div>
          );
