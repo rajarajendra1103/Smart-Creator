@@ -5,7 +5,7 @@ import {
   Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight,
   Copy, Scissors, Clipboard, Image as ImageIcon, Undo, Redo,
   Type, List, ListOrdered, Minus, Circle, Square, LayoutTemplate, Grid, QrCode, Download,
-  FileText, Layout, Upload
+  FileText, Layout, Upload, Linkedin, Github, Facebook, Instagram, Twitter
 } from 'lucide-react';
 import { CanvasItem, ToolType, CanvasItemStyle } from '../types';
 import html2canvas from 'html2canvas';
@@ -28,16 +28,11 @@ const TOOLS: { id: ToolType; label: string; icon: React.ReactNode }[] = [
   { id: 'EDUCATION', label: 'Education', icon: <GraduationCap size={20} /> },
   { id: 'PROJECTS', label: 'Projects', icon: <FolderGit2 size={20} /> },
   { id: 'SKILLS', label: 'Skills', icon: <Wrench size={20} /> },
-  { id: 'GALLERY', label: 'Photos', icon: <ImageIcon size={20} /> },
-];
-
-const GALLERY_IMAGES = [
-  { src: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80", label: "Woman 1" },
-  { src: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=300&q=80", label: "Man 1" },
-  { src: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=300&q=80", label: "Woman 2" },
-  { src: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80", label: "Man 2" },
-  { src: "https://plus.unsplash.com/premium_photo-1661963212517-830bbb7d76fc?auto=format&fit=crop&w=300&q=80", label: "Woman 3" },
-  { src: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=300&q=80", label: "Man 3" },
+  { id: 'LINKEDIN', label: 'LinkedIn', icon: <Linkedin size={20} /> },
+  { id: 'GITHUB', label: 'GitHub', icon: <Github size={20} /> },
+  { id: 'TWITTER', label: 'X / Twitter', icon: <Twitter size={20} /> },
+  { id: 'FACEBOOK', label: 'Facebook', icon: <Facebook size={20} /> },
+  { id: 'INSTAGRAM', label: 'Instagram', icon: <Instagram size={20} /> },
 ];
 
 const FONTS = ['Inter', 'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana'];
@@ -54,6 +49,11 @@ const getDefaultData = (type: ToolType) => {
     case 'LIST': return { items: ['List item 1', 'List item 2', 'List item 3'] };
     case 'SHAPE': return { shapeType: 'rectangle' };
     case 'IMAGE': return { src: '' };
+    case 'LINKEDIN': return { text: 'linkedin.com/in/username', link: 'https://linkedin.com/in/username' };
+    case 'GITHUB': return { text: 'github.com/username', link: 'https://github.com/username' };
+    case 'TWITTER': return { text: '@username', link: 'https://x.com/username' };
+    case 'FACEBOOK': return { text: 'facebook.com/username', link: 'https://facebook.com/username' };
+    case 'INSTAGRAM': return { text: '@username', link: 'https://instagram.com/username' };
     default: return {};
   }
 };
@@ -62,6 +62,7 @@ const getDefaultStyle = (type: ToolType): CanvasItemStyle => {
   const base = { fontSize: 14, fontFamily: 'Inter', color: '#000000', lineHeight: 1.5, textAlign: 'left' as const };
   if (type === 'SHAPE') return { ...base, width: 100, height: 100, backgroundColor: '#B2E800', borderWidth: 0 };
   if (type === 'IMAGE') return { ...base, width: 150, height: 150 };
+  if (['LINKEDIN', 'GITHUB', 'TWITTER', 'FACEBOOK', 'INSTAGRAM'].includes(type)) return { ...base, fontSize: 12, color: '#374151' };
   return base;
 };
 
@@ -370,22 +371,8 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
     setSelectedItemId(null);
   };
 
-  const handleGallerySelect = (src: string) => {
-      const newItem: CanvasItem = {
-          id: Date.now().toString(),
-          type: 'IMAGE',
-          x: CANVAS_WIDTH / 2 - 75,
-          y: CANVAS_HEIGHT / 2 - 75,
-          data: { src },
-          style: getDefaultStyle('IMAGE')
-      };
-      setItems([...items, newItem]);
-      setSelectedItemId(newItem.id);
-      setSelectedTool(null);
-  };
-
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (selectedTool && selectedTool !== 'GALLERY' && !isDragging) {
+    if (selectedTool && !isDragging) {
       const rect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
@@ -640,6 +627,12 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
         {type === 'SKILLS' && (
            <Input label="Skills (comma separated)" value={data.items} onChange={v => updateItemData(selectedItem.id, 'items', v)} />
         )}
+        {(['LINKEDIN', 'GITHUB', 'TWITTER', 'FACEBOOK', 'INSTAGRAM'].includes(type)) && (
+           <>
+             <Input label="Display Text" value={data.text} onChange={v => updateItemData(selectedItem.id, 'text', v)} />
+             <Input label="URL (Optional)" value={data.link} onChange={v => updateItemData(selectedItem.id, 'link', v)} />
+           </>
+        )}
         {type === 'LIST' && (
            <div className="space-y-2">
              <label className="text-xs text-gray-400">List Items</label>
@@ -788,6 +781,25 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
                  {item.data.items.map((li: string, i: number) => <li key={i}>{li}</li>)}
                </ListTag>
             </div>
+         );
+         break;
+      case 'LINKEDIN':
+      case 'GITHUB':
+      case 'TWITTER':
+      case 'FACEBOOK':
+      case 'INSTAGRAM':
+         let Icon = User;
+         if (item.type === 'LINKEDIN') Icon = Linkedin;
+         if (item.type === 'GITHUB') Icon = Github;
+         if (item.type === 'TWITTER') Icon = Twitter;
+         if (item.type === 'FACEBOOK') Icon = Facebook;
+         if (item.type === 'INSTAGRAM') Icon = Instagram;
+         
+         content = (
+           <div style={{ ...style, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Icon size={style.fontSize ? style.fontSize * 1.2 : 16} />
+              <span>{item.data.text}</span>
+           </div>
          );
          break;
     }
@@ -942,59 +954,34 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
         <div className="flex-1 overflow-y-auto p-6">
           {!selectedItem ? (
             <div className="animate-fadeIn">
-              {selectedTool === 'GALLERY' ? (
-                  <>
-                    <div className="flex items-center mb-4">
-                        <button onClick={() => setSelectedTool(null)} className="mr-2 p-1 hover:bg-white/10 rounded-full">
-                            <ArrowLeft size={16} />
-                        </button>
-                        <h2 className="text-lg font-bold">Image Gallery</h2>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        {GALLERY_IMAGES.map((img, idx) => (
-                            <button
-                                key={idx}
-                                onClick={() => handleGallerySelect(img.src)}
-                                className="relative aspect-square rounded-lg overflow-hidden border border-white/10 hover:border-brand-lime transition-all group"
-                            >
-                                <img src={img.src} alt={img.label} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <span className="text-xs font-bold bg-black/70 px-2 py-1 rounded">Add</span>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                  </>
-              ) : (
-                  <>
-                    <h2 className="text-lg font-bold mb-2">Add Content</h2>
-                    <p className="text-gray-400 text-xs mb-6">Click a block below, then click on the canvas to place it.</p>
-                    
-                    <div className="grid grid-cols-1 gap-3">
-                        {TOOLS.map((tool) => (
-                        <button
-                            key={tool.id}
-                            onClick={() => handleToolSelect(tool.id)}
-                            className={`flex items-center p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden ${
-                            selectedTool === tool.id 
-                                ? 'bg-brand-lime text-brand-black border-brand-lime shadow-[0_0_20px_rgba(178,232,0,0.3)]' 
-                                : 'bg-brand-gray border-white/10 text-gray-300 hover:border-brand-lime/50 hover:bg-white/5'
-                            }`}
-                        >
-                            <div className={`mr-4 p-2 rounded-lg ${selectedTool === tool.id ? 'bg-black/10' : 'bg-white/5'}`}>
-                            {tool.icon}
-                            </div>
-                            <span className="font-bold">{tool.label}</span>
-                            {selectedTool === tool.id && (
-                            <div className="absolute right-4 animate-pulse">
-                                <Move size={16} />
-                            </div>
-                            )}
-                        </button>
-                        ))}
-                    </div>
-                  </>
-              )}
+                <>
+                <h2 className="text-lg font-bold mb-2">Add Content</h2>
+                <p className="text-gray-400 text-xs mb-6">Click a block below, then click on the canvas to place it.</p>
+                
+                <div className="grid grid-cols-1 gap-3">
+                    {TOOLS.map((tool) => (
+                    <button
+                        key={tool.id}
+                        onClick={() => handleToolSelect(tool.id)}
+                        className={`flex items-center p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden ${
+                        selectedTool === tool.id 
+                            ? 'bg-brand-lime text-brand-black border-brand-lime shadow-[0_0_20px_rgba(178,232,0,0.3)]' 
+                            : 'bg-brand-gray border-white/10 text-gray-300 hover:border-brand-lime/50 hover:bg-white/5'
+                        }`}
+                    >
+                        <div className={`mr-4 p-2 rounded-lg ${selectedTool === tool.id ? 'bg-black/10' : 'bg-white/5'}`}>
+                        {tool.icon}
+                        </div>
+                        <span className="font-bold">{tool.label}</span>
+                        {selectedTool === tool.id && (
+                        <div className="absolute right-4 animate-pulse">
+                            <Move size={16} />
+                        </div>
+                        )}
+                    </button>
+                    ))}
+                </div>
+                </>
             </div>
           ) : (
             renderEditor()
@@ -1010,7 +997,7 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
 
         {/* Canvas Area */}
         <div className="flex-1 overflow-auto p-8 relative flex justify-center items-start cursor-default select-none">
-          {selectedTool && selectedTool !== 'GALLERY' && (
+          {selectedTool && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-brand-lime text-black px-4 py-2 rounded-full shadow-lg z-50 font-bold text-sm animate-bounce">
               Click paper to place {TOOLS.find(t => t.id === selectedTool)?.label}
             </div>
@@ -1028,7 +1015,7 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
               minWidth: CANVAS_WIDTH,
               minHeight: CANVAS_HEIGHT
             }}
-            className={`bg-white shadow-2xl relative transition-cursor ${selectedTool && selectedTool !== 'GALLERY' ? 'cursor-crosshair' : ''}`}
+            className={`bg-white shadow-2xl relative transition-cursor ${selectedTool ? 'cursor-crosshair' : ''}`}
           >
             {items.length === 0 && !selectedTool && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 pointer-events-none">

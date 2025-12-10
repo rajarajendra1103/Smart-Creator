@@ -7,7 +7,7 @@ export enum View {
   GENERAL_QR = 'GENERAL_QR'
 }
 
-export type ToolType = 'NAME' | 'CONTACT' | 'EXPERIENCE' | 'EDUCATION' | 'PROJECTS' | 'SKILLS' | 'IMAGE' | 'SHAPE' | 'TEXT' | 'LIST' | 'GALLERY';
+export type ToolType = 'NAME' | 'CONTACT' | 'EXPERIENCE' | 'EDUCATION' | 'PROJECTS' | 'SKILLS' | 'IMAGE' | 'SHAPE' | 'TEXT' | 'LIST' | 'LINKEDIN' | 'GITHUB' | 'TWITTER' | 'FACEBOOK' | 'INSTAGRAM';
 
 export interface CanvasItemStyle {
   fontSize?: number;
