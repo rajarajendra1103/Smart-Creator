@@ -795,9 +795,11 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
          if (item.type === 'FACEBOOK') Icon = Facebook;
          if (item.type === 'INSTAGRAM') Icon = Instagram;
          
+         const iconSize = (item.style?.fontSize || 13) * 1.2;
+
          content = (
            <div style={{ ...style, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Icon size={item.style?.fontSize ? item.style.fontSize * 1.2 : 16} />
+              <Icon size={iconSize} />
               <span>{item.data.text}</span>
            </div>
          );
