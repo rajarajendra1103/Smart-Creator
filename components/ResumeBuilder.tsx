@@ -975,7 +975,7 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
       <div className="flex-1 flex flex-col bg-gray-100">
         {renderToolbar()}
 
-        <div className="flex-1 overflow-auto p-8 relative flex justify-center items-start cursor-default select-none">
+        <div className="flex-1 overflow-auto p-8 relative cursor-default select-none">
           {selectedTool && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-brand-lime text-black px-4 py-2 rounded-full shadow-lg z-50 font-bold text-sm animate-bounce">
               Click paper to place {TOOLS.find(t => t.id === selectedTool)?.label}
@@ -993,7 +993,7 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
               minWidth: CANVAS_WIDTH,
               minHeight: CANVAS_HEIGHT
             }}
-            className={`bg-white shadow-2xl relative transition-cursor ${selectedTool ? 'cursor-crosshair' : ''}`}
+            className={`bg-white shadow-2xl relative transition-cursor mx-auto ${selectedTool ? 'cursor-crosshair' : ''}`}
           >
             {items.length === 0 && !selectedTool && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 pointer-events-none">

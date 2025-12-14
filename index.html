@@ -1,9 +1,37 @@
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "html2canvas": "https://esm.sh/html2canvas@^1.4.1",
+    "qrcode.react": "https://esm.sh/qrcode.react@^4.2.0",
+    "vite": "https://esm.sh/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+  }
+}
+</script>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Creator Studio</title>
+    
+    <!-- Social Media Meta Tags (Open Graph) -->
+    <meta property="og:title" content="Smart Creator Studio - AI Powered Design Suite">
+    <meta property="og:description" content="Create professional resumes, digital visiting cards, and QR codes instantly. Powered by Google Gemini AI.">
+    <meta property="og:image" content="https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1200&q=80">
+    <meta property="og:type" content="website">
+    
+    <!-- Twitter Card Data -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Smart Creator Studio">
+    <meta name="twitter:description" content="Create professional resumes, digital visiting cards, and QR codes instantly. Powered by Google Gemini AI.">
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1200&q=80">
+
     <!-- Fix Favicon 404 by providing data URI icons -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23B2E800%22 /><text x=%2250%22 y=%2250%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2260%22 text-anchor=%22middle%22 dy=%22.35em%22 fill=%22%23050505%22>S</text></svg>">
     <link rel="shortcut icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23B2E800%22 /><text x=%2250%22 y=%2250%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2260%22 text-anchor=%22middle%22 dy=%22.35em%22 fill=%22%23050505%22>S</text></svg>">
@@ -31,51 +59,3 @@
                         'shine': 'shine 4s linear infinite',
                         'fadeIn': 'fadeIn 0.5s ease-out',
                     },
-                    keyframes: {
-                        shine: {
-                            '0%': { left: '-200px' },
-                            '100%': { left: '120%' },
-                        },
-                        fadeIn: {
-                            '0%': { opacity: '0', transform: 'translateY(10px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #050505;
-            color: white;
-        }
-        @media print {
-            .no-print { display: none !important; }
-            .print-only { display: block !important; }
-            body { background-color: white; color: black; }
-        }
-    </style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
-    "html2canvas": "https://esm.sh/html2canvas@^1.4.1",
-    "qrcode.react": "https://esm.sh/qrcode.react@^4.2.0",
-    "vite": "https://esm.sh/vite@^7.2.7",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
-  }
-}
-</script>
-</head>
-<body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-</body>
-</html>

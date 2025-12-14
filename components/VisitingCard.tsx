@@ -733,7 +733,7 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
                 </div>
              )}
 
-             <div className="relative">
+             <div className="relative mx-auto">
                 {layoutMode === 'double' && (
                     <div className="absolute -left-16 top-0 text-xs font-bold text-gray-400 flex flex-col gap-[390px]">
                         <span>FRONT</span>
@@ -798,4 +798,4 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
       )}
     </div>
   );
-};
+}
