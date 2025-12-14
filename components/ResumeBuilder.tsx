@@ -5,11 +5,12 @@ import {
   Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight,
   Copy, Scissors, Clipboard, Image as ImageIcon, Undo, Redo,
   Type, List, ListOrdered, Minus, Circle, Square, LayoutTemplate, Grid, QrCode, Download,
-  FileText, Layout, Upload, Linkedin, Github, Facebook, Instagram, Twitter
+  FileText, Layout, Upload, Linkedin, Github, Facebook, Instagram, Twitter, Sparkles
 } from 'lucide-react';
 import { CanvasItem, ToolType, CanvasItemStyle } from '../types';
 import html2canvas from 'html2canvas';
 import { QRCodeCanvas } from 'qrcode.react';
+import { generateResumeSummary, generateExperienceDescription } from '../services/geminiService';
 
 interface ResumeBuilderProps {
   onBack: () => void;
@@ -67,7 +68,6 @@ const getDefaultStyle = (type: ToolType): CanvasItemStyle => {
 };
 
 export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
-  // Synchronous State Initialization to prevent flicker
   const getInitialState = () => {
     const savedData = localStorage.getItem('smart-creator-resume-draft');
     if (savedData) {
@@ -85,17 +85,13 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
 
   const initialState = getInitialState();
 
-  // Setup State
   const [setupStage, setSetupStage] = useState<'initial' | 'templates' | 'editor'>(initialState.stage);
-
-  // History Management
   const [history, setHistory] = useState<CanvasItem[][]>(initialState.history);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
-
-  // QR Modal State
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const items = history[historyIndex];
   
@@ -135,11 +131,8 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
   const handleGenerateQr = async () => {
     const canvasElement = document.getElementById('canvas-area');
     if (canvasElement) {
-        // Temporarily deselect items to hide handles
         const prevSelection = selectedItemId;
         setSelectedItemId(null);
-        
-        // Short delay to allow React to render deselection
         setTimeout(async () => {
             try {
                 const canvas = await html2canvas(canvasElement, { scale: 2 });
@@ -148,7 +141,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
                         const url = URL.createObjectURL(blob);
                         setQrUrl(url);
                         setShowQrModal(true);
-                        // Restore selection
                         if (prevSelection) setSelectedItemId(prevSelection);
                     }
                 });
@@ -164,16 +156,35 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
   const [clipboard, setClipboard] = useState<CanvasItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
-  
-  // Dragging state
   const [isDragging, setIsDragging] = useState(false);
   const dragItemRef = useRef<string | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
 
   const selectedItem = items.find(i => i.id === selectedItemId);
 
-  // --- Toolbar Actions ---
+  // --- AI Handlers ---
+  const handleAiSummary = async (role: string) => {
+    if (!selectedItemId) return;
+    setIsGenerating(true);
+    const years = prompt("How many years of experience?", "5");
+    const skills = prompt("List key skills (comma separated)", "React, Node, Communication");
+    
+    if (years && skills) {
+        const summary = await generateResumeSummary(role, years, skills);
+        updateItemData(selectedItemId, 'summary', summary);
+    }
+    setIsGenerating(false);
+  };
 
+  const handleAiExperience = async (role: string, company: string) => {
+    if (!selectedItemId) return;
+    setIsGenerating(true);
+    const description = await generateExperienceDescription(role, company);
+    updateItemData(selectedItemId, 'description', description);
+    setIsGenerating(false);
+  };
+
+  // --- Toolbar Actions ---
   const updateItemStyle = (updates: Partial<CanvasItemStyle>) => {
     if (!selectedItemId) return;
     const newItems = items.map(item => 
@@ -300,37 +311,27 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
     let templateItems: CanvasItem[] = [];
 
     if (index === 0) {
-        // Modern Clean - Two Column, Accents
+        // Modern Clean
         templateItems = [
-            // Header
             { id: '1', type: 'NAME', x: 40, y: 40, data: getDefaultData('NAME'), style: { ...getDefaultStyle('NAME'), fontSize: 28, fontWeight: 'bold' } },
             { id: '2', type: 'CONTACT', x: 40, y: 110, data: getDefaultData('CONTACT'), style: { ...getDefaultStyle('CONTACT'), fontSize: 12 } },
             { id: '3', type: 'SHAPE', x: 40, y: 150, data: { shapeType: 'line' }, style: { ...getDefaultStyle('SHAPE'), width: 700, height: 4, backgroundColor: '#B2E800' } },
-            
-            // Left Column (Skills & Ed)
             { id: '4', type: 'TEXT', x: 40, y: 180, data: { text: 'SKILLS' }, style: { ...getDefaultStyle('TEXT'), fontSize: 16, fontWeight: 'bold', color: '#B2E800' } },
             { id: '5', type: 'SKILLS', x: 40, y: 210, data: getDefaultData('SKILLS'), style: { ...getDefaultStyle('SKILLS'), width: 250 } },
             { id: '6', type: 'TEXT', x: 40, y: 350, data: { text: 'EDUCATION' }, style: { ...getDefaultStyle('TEXT'), fontSize: 16, fontWeight: 'bold', color: '#B2E800' } },
             { id: '7', type: 'EDUCATION', x: 40, y: 380, data: getDefaultData('EDUCATION'), style: { ...getDefaultStyle('EDUCATION'), width: 250 } },
-
-            // Right Column (Experience)
             { id: '8', type: 'TEXT', x: 320, y: 180, data: { text: 'EXPERIENCE' }, style: { ...getDefaultStyle('TEXT'), fontSize: 16, fontWeight: 'bold', color: '#B2E800' } },
             { id: '9', type: 'EXPERIENCE', x: 320, y: 210, data: getDefaultData('EXPERIENCE'), style: { ...getDefaultStyle('EXPERIENCE'), width: 400 } },
             { id: '10', type: 'EXPERIENCE', x: 320, y: 350, data: { ...getDefaultData('EXPERIENCE'), role: 'Junior Developer', company: 'Startup Inc', duration: '2018 - 2020' }, style: { ...getDefaultStyle('EXPERIENCE'), width: 400 } },
         ];
     } else if (index === 1) {
-        // Professional - Left Sidebar
+        // Professional
         templateItems = [
-             // Sidebar Background
              { id: 'bg1', type: 'SHAPE', x: 0, y: 0, data: { shapeType: 'rectangle' }, style: { ...getDefaultStyle('SHAPE'), width: 240, height: CANVAS_HEIGHT, backgroundColor: '#1f2937', borderWidth: 0 } },
-             
-             // Sidebar Content
              { id: '1', type: 'NAME', x: 20, y: 40, data: getDefaultData('NAME'), style: { ...getDefaultStyle('NAME'), fontSize: 24, fontWeight: 'bold', color: 'white' } },
              { id: '2', type: 'CONTACT', x: 20, y: 200, data: getDefaultData('CONTACT'), style: { ...getDefaultStyle('CONTACT'), fontSize: 11, color: '#9ca3af' } },
              { id: '3', type: 'TEXT', x: 20, y: 350, data: { text: 'SKILLS' }, style: { ...getDefaultStyle('TEXT'), fontSize: 14, fontWeight: 'bold', color: 'white', letterSpacing: '2px' } },
              { id: '4', type: 'SKILLS', x: 20, y: 380, data: getDefaultData('SKILLS'), style: { ...getDefaultStyle('SKILLS'), width: 200, color: 'white' } },
-
-             // Main Content
              { id: '5', type: 'TEXT', x: 280, y: 40, data: { text: 'WORK EXPERIENCE' }, style: { ...getDefaultStyle('TEXT'), fontSize: 18, fontWeight: 'bold', color: '#374151', letterSpacing: '1px', borderBottom: '2px solid #374151', width: 450 } },
              { id: '6', type: 'EXPERIENCE', x: 280, y: 90, data: getDefaultData('EXPERIENCE'), style: { ...getDefaultStyle('EXPERIENCE'), width: 450 } },
              { id: '7', type: 'EXPERIENCE', x: 280, y: 250, data: { ...getDefaultData('EXPERIENCE'), role: 'Junior Developer', duration: '2018-2020' }, style: { ...getDefaultStyle('EXPERIENCE'), width: 450 } },
@@ -343,16 +344,13 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
              { id: '1', type: 'NAME', x: 0, y: 40, data: getDefaultData('NAME'), style: { ...getDefaultStyle('NAME'), fontSize: 32, fontWeight: 'bold', textAlign: 'center', width: CANVAS_WIDTH } },
              { id: '2', type: 'CONTACT', x: 0, y: 120, data: getDefaultData('CONTACT'), style: { ...getDefaultStyle('CONTACT'), fontSize: 12, textAlign: 'center', width: CANVAS_WIDTH } },
              { id: '3', type: 'SHAPE', x: 40, y: 160, data: { shapeType: 'line' }, style: { ...getDefaultStyle('SHAPE'), width: 700, height: 1, backgroundColor: '#000000' } },
-             
              { id: '4', type: 'TEXT', x: 40, y: 180, data: { text: 'Professional Experience' }, style: { ...getDefaultStyle('TEXT'), fontSize: 14, fontWeight: 'bold', textTransform: 'uppercase' } },
              { id: '5', type: 'EXPERIENCE', x: 40, y: 210, data: getDefaultData('EXPERIENCE'), style: { ...getDefaultStyle('EXPERIENCE'), width: 700 } },
              { id: '6', type: 'EXPERIENCE', x: 40, y: 340, data: { ...getDefaultData('EXPERIENCE'), role: 'Developer' }, style: { ...getDefaultStyle('EXPERIENCE'), width: 700 } },
-
              { id: '7', type: 'TEXT', x: 40, y: 480, data: { text: 'Education' }, style: { ...getDefaultStyle('TEXT'), fontSize: 14, fontWeight: 'bold', textTransform: 'uppercase' } },
              { id: '8', type: 'EDUCATION', x: 40, y: 510, data: getDefaultData('EDUCATION'), style: { ...getDefaultStyle('EDUCATION'), width: 700 } },
         ];
     } else {
-        // Blank
         templateItems = [];
     }
 
@@ -363,8 +361,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
   const loadTemplate = () => {
     setSetupStage('templates');
   };
-
-  // --- Canvas Interaction ---
 
   const handleToolSelect = (tool: ToolType) => {
     setSelectedTool(tool);
@@ -423,7 +419,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
           : item
       );
       
-      // Update state without history for smooth dragging
       const tempHistory = [...history];
       tempHistory[historyIndex] = newItems;
       setHistory(tempHistory);
@@ -433,13 +428,11 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
   const handleMouseUp = () => {
     if (isDragging) {
       const currentItems = history[historyIndex];
-      setItems(currentItems, true); // Commit drag end to history
+      setItems(currentItems, true);
     }
     setIsDragging(false);
     dragItemRef.current = null;
   };
-
-  // --- Renderers ---
 
   const renderToolbar = () => {
     const s = selectedItem?.style || {};
@@ -447,14 +440,11 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
 
     return (
       <div className="h-16 bg-white border-b border-gray-200 flex items-center px-4 gap-2 overflow-x-auto shadow-sm z-20 text-gray-900 select-none whitespace-nowrap">
-        
-        {/* Undo / Redo */}
         <div className="flex gap-1 pr-2 border-r border-gray-200 shrink-0">
            <button onClick={undo} disabled={historyIndex === 0} className="p-2 hover:bg-gray-100 rounded disabled:opacity-30" title="Undo"><Undo size={18} /></button>
            <button onClick={redo} disabled={historyIndex === history.length - 1} className="p-2 hover:bg-gray-100 rounded disabled:opacity-30" title="Redo"><Redo size={18} /></button>
         </div>
 
-        {/* Font Controls */}
         <div className="flex gap-2 items-center pr-2 border-r border-gray-200 shrink-0">
            <select 
              value={s.fontFamily || 'Inter'} 
@@ -483,7 +473,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
            />
         </div>
 
-        {/* Style Toggles */}
         <div className="flex gap-1 pr-2 border-r border-gray-200 shrink-0">
           <button onClick={() => updateItemStyle({ fontWeight: s.fontWeight === 'bold' ? 'normal' : 'bold' })} disabled={!hasSelection} className={`p-2 rounded ${s.fontWeight === 'bold' ? 'bg-gray-200' : 'hover:bg-gray-100'}`} title="Bold"><Bold size={18} /></button>
           <button onClick={() => updateItemStyle({ fontStyle: s.fontStyle === 'italic' ? 'normal' : 'italic' })} disabled={!hasSelection} className={`p-2 rounded ${s.fontStyle === 'italic' ? 'bg-gray-200' : 'hover:bg-gray-100'}`} title="Italic"><Italic size={18} /></button>
@@ -491,7 +480,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
           <button onClick={() => updateItemStyle({ textDecoration: s.textDecoration === 'line-through' ? 'none' : 'line-through' })} disabled={!hasSelection} className={`p-2 rounded ${s.textDecoration === 'line-through' ? 'bg-gray-200' : 'hover:bg-gray-100'}`} title="Strikethrough"><Strikethrough size={18} /></button>
         </div>
 
-        {/* Colors (RGB) */}
         <div className="flex items-center gap-2 pr-2 border-r border-gray-200 shrink-0">
             <div className={`flex flex-col items-center group relative ${!hasSelection ? 'opacity-40 pointer-events-none' : ''}`}>
                 <label className="text-[9px] text-gray-500 uppercase font-bold">Text</label>
@@ -515,21 +503,18 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
             </div>
         </div>
 
-        {/* Alignment */}
         <div className="flex gap-1 pr-2 border-r border-gray-200 shrink-0">
           <button onClick={() => updateItemStyle({ textAlign: 'left' })} disabled={!hasSelection} className={`p-2 rounded ${s.textAlign === 'left' ? 'bg-gray-200' : 'hover:bg-gray-100'}`} title="Align Left"><AlignLeft size={18} /></button>
           <button onClick={() => updateItemStyle({ textAlign: 'center' })} disabled={!hasSelection} className={`p-2 rounded ${s.textAlign === 'center' ? 'bg-gray-200' : 'hover:bg-gray-100'}`} title="Align Center"><AlignCenter size={18} /></button>
           <button onClick={() => updateItemStyle({ textAlign: 'right' })} disabled={!hasSelection} className={`p-2 rounded ${s.textAlign === 'right' ? 'bg-gray-200' : 'hover:bg-gray-100'}`} title="Align Right"><AlignRight size={18} /></button>
         </div>
 
-        {/* Clipboard */}
         <div className="flex gap-1 pr-2 border-r border-gray-200 shrink-0">
            <button onClick={handleCopy} disabled={!hasSelection} className="p-2 hover:bg-gray-100 rounded" title="Copy"><Copy size={18} /></button>
            <button onClick={handleCut} disabled={!hasSelection} className="p-2 hover:bg-gray-100 rounded" title="Cut"><Scissors size={18} /></button>
            <button onClick={handlePaste} disabled={!clipboard} className="p-2 hover:bg-gray-100 rounded" title="Paste"><Clipboard size={18} /></button>
         </div>
 
-        {/* Insert Objects */}
         <div className="flex gap-2 items-center shrink-0">
           <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded text-sm" title="Insert Image">
             <ImageIcon size={18} />
@@ -591,7 +576,13 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
           <>
             <Input label="Full Name" value={data.name} onChange={v => updateItemData(selectedItem.id, 'name', v)} />
             <Input label="Role Title" value={data.role} onChange={v => updateItemData(selectedItem.id, 'role', v)} />
-            <InputArea label="Summary" value={data.summary} onChange={v => updateItemData(selectedItem.id, 'summary', v)} />
+            <InputArea 
+                label="Summary" 
+                value={data.summary} 
+                onChange={v => updateItemData(selectedItem.id, 'summary', v)}
+                onAiAssist={() => handleAiSummary(data.role)}
+                isLoading={isGenerating}
+            />
           </>
         )}
         {type === 'CONTACT' && (
@@ -607,7 +598,13 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
              <Input label="Role" value={data.role} onChange={v => updateItemData(selectedItem.id, 'role', v)} />
              <Input label="Company" value={data.company} onChange={v => updateItemData(selectedItem.id, 'company', v)} />
              <Input label="Duration" value={data.duration} onChange={v => updateItemData(selectedItem.id, 'duration', v)} />
-             <InputArea label="Description" value={data.description} onChange={v => updateItemData(selectedItem.id, 'description', v)} />
+             <InputArea 
+                label="Description" 
+                value={data.description} 
+                onChange={v => updateItemData(selectedItem.id, 'description', v)}
+                onAiAssist={() => handleAiExperience(data.role, data.company)}
+                isLoading={isGenerating}
+            />
            </>
         )}
         {type === 'EDUCATION' && (
@@ -674,10 +671,9 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
     const isSelected = selectedItemId === item.id;
     const style: React.CSSProperties = {
       ...item.style,
-      position: 'relative' // Override absolute from parent for inner content flow
+      position: 'relative'
     };
     
-    // Wrapper Style (Positioning)
     const wrapperStyle: React.CSSProperties = {
       left: item.x,
       top: item.y,
@@ -834,7 +830,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
         <p className="text-gray-400 mb-10">Start fresh or use a professional template</p>
         
         <div className="flex flex-wrap justify-center gap-6 md:gap-10">
-            {/* Cancel */}
             <button 
                 onClick={onBack} 
                 className="w-32 h-32 md:w-40 md:h-40 bg-brand-gray border border-white/10 hover:border-red-500/50 hover:bg-red-500/10 rounded-2xl flex flex-col items-center justify-center gap-4 transition-all group shadow-xl"
@@ -844,8 +839,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
                 </div>
                 <span className="text-gray-300 font-medium group-hover:text-red-400">Cancel</span>
             </button>
-
-            {/* Blank */}
             <button 
                 onClick={() => { setItems([]); setSetupStage('editor'); }}
                 className="w-32 h-32 md:w-40 md:h-40 bg-brand-gray border border-white/10 hover:border-brand-lime hover:bg-brand-lime/5 rounded-2xl flex flex-col items-center justify-center gap-4 transition-all group shadow-xl hover:-translate-y-2"
@@ -853,8 +846,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
                 <div className="w-16 h-20 bg-white rounded border border-gray-300 group-hover:shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all"></div>
                 <span className="text-gray-300 font-medium group-hover:text-white">Blank</span>
             </button>
-
-            {/* Templates */}
             <button 
                 onClick={() => setSetupStage('templates')} 
                 className="w-32 h-32 md:w-40 md:h-40 bg-brand-gray border border-white/10 hover:border-brand-lime hover:bg-brand-lime/5 rounded-2xl flex flex-col items-center justify-center gap-4 transition-all group shadow-xl hover:-translate-y-2"
@@ -876,14 +867,10 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
                 <button onClick={() => setSetupStage('initial')} className="mb-8 text-gray-400 hover:text-white flex items-center gap-2">
                     <ArrowLeft size={20} /> Back
                 </button>
-                
                 <h2 className="text-3xl font-bold text-white mb-8 text-center">Select a Template</h2>
-                
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {/* Modern Clean */}
                     <div onClick={() => loadResumeTemplate(0)} className="group cursor-pointer">
                         <div className="bg-white aspect-[210/297] rounded-lg mb-4 overflow-hidden relative shadow-lg group-hover:shadow-brand-lime/20 border-4 border-transparent group-hover:border-brand-lime transition-all">
-                             {/* Preview Illustration */}
                              <div className="absolute top-4 left-4 right-4 h-8 bg-gray-200" />
                              <div className="absolute top-16 left-4 right-4 h-1 bg-brand-lime" />
                              <div className="absolute top-20 left-4 w-1/3 bottom-4 bg-gray-50" />
@@ -892,8 +879,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
                         <h3 className="text-center font-bold text-xl group-hover:text-brand-lime">Modern Clean</h3>
                         <p className="text-center text-gray-500 text-sm">Two-column with accent lines</p>
                     </div>
-
-                    {/* Professional */}
                     <div onClick={() => loadResumeTemplate(1)} className="group cursor-pointer">
                         <div className="bg-white aspect-[210/297] rounded-lg mb-4 overflow-hidden relative shadow-lg group-hover:shadow-brand-lime/20 border-4 border-transparent group-hover:border-brand-lime transition-all">
                              <div className="absolute top-0 left-0 bottom-0 w-1/3 bg-gray-800" />
@@ -904,8 +889,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
                         <h3 className="text-center font-bold text-xl group-hover:text-brand-lime">Professional</h3>
                         <p className="text-center text-gray-500 text-sm">Dark sidebar & structured content</p>
                     </div>
-
-                    {/* Simple Classic */}
                     <div onClick={() => loadResumeTemplate(2)} className="group cursor-pointer">
                         <div className="bg-white aspect-[210/297] rounded-lg mb-4 overflow-hidden relative shadow-lg group-hover:shadow-brand-lime/20 border-4 border-transparent group-hover:border-brand-lime transition-all">
                              <div className="absolute top-8 left-1/2 -translate-x-1/2 w-1/2 h-6 bg-gray-200" />
@@ -924,7 +907,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
 
   return (
     <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh-64px)] overflow-hidden">
-      {/* Sidebar Panel */}
       <div className="w-full lg:w-80 flex flex-col border-r border-white/10 bg-brand-black z-10 shadow-xl h-full flex-shrink-0">
         <div className="p-4 border-b border-white/10 flex justify-between items-center bg-brand-black">
           <button onClick={onBack} className="flex items-center text-gray-400 hover:text-white transition-colors text-sm">
@@ -959,7 +941,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
                 <>
                 <h2 className="text-lg font-bold mb-2">Add Content</h2>
                 <p className="text-gray-400 text-xs mb-6">Click a block below, then click on the canvas to place it.</p>
-                
                 <div className="grid grid-cols-1 gap-3">
                     {TOOLS.map((tool) => (
                     <button
@@ -991,13 +972,9 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
         </div>
       </div>
 
-      {/* Right Panel Container */}
       <div className="flex-1 flex flex-col bg-gray-100">
-        
-        {/* Top Toolbar */}
         {renderToolbar()}
 
-        {/* Canvas Area */}
         <div className="flex-1 overflow-auto p-8 relative flex justify-center items-start cursor-default select-none">
           {selectedTool && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-brand-lime text-black px-4 py-2 rounded-full shadow-lg z-50 font-bold text-sm animate-bounce">
@@ -1005,7 +982,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
             </div>
           )}
 
-          {/* The Paper */}
           <div 
             id="canvas-area"
             onClick={handleCanvasClick}
@@ -1032,7 +1008,6 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
         </div>
       </div>
 
-      {/* QR Code Modal */}
       {showQrModal && qrUrl && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
             <div className="bg-brand-gray border border-white/10 rounded-2xl p-8 max-w-sm w-full relative">
@@ -1043,15 +1018,12 @@ export const ResumeBuilder: React.FC<ResumeBuilderProps> = ({ onBack }) => {
                     <X size={20} />
                 </button>
                 <h3 className="text-xl font-bold text-white mb-6 text-center">Your Resume QR</h3>
-                
                 <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-fit">
                     <QRCodeCanvas value={qrUrl} size={200} level="M" />
                 </div>
-                
                 <p className="text-center text-xs text-gray-400 mb-6">
                     Scan to open the resume (same device only) or click below to download.
                 </p>
-
                 <a 
                     href={qrUrl} 
                     download="Resume.png" 
@@ -1078,9 +1050,21 @@ const Input: React.FC<{ label: string; value: string; onChange: (v: string) => v
   </div>
 );
 
-const InputArea: React.FC<{ label: string; value: string; onChange: (v: string) => void }> = ({ label, value, onChange }) => (
+const InputArea: React.FC<{ label: string; value: string; onChange: (v: string) => void; onAiAssist?: () => void; isLoading?: boolean }> = ({ label, value, onChange, onAiAssist, isLoading }) => (
   <div className="space-y-1">
-    <label className="text-xs text-gray-400 font-medium">{label}</label>
+    <div className="flex justify-between items-center">
+        <label className="text-xs text-gray-400 font-medium">{label}</label>
+        {onAiAssist && (
+            <button 
+                onClick={onAiAssist} 
+                disabled={isLoading}
+                className="text-xs flex items-center gap-1 text-brand-lime hover:text-white transition-colors disabled:opacity-50"
+            >
+                <Sparkles size={12} />
+                {isLoading ? 'Thinking...' : 'AI Assist'}
+            </button>
+        )}
+    </div>
     <textarea 
       value={value} 
       onChange={(e) => onChange(e.target.value)}

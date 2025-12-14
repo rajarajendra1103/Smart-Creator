@@ -7,20 +7,20 @@ import {
   Copy, Clipboard, Trash2, Scissors,
   List, ListOrdered, MousePointer2,
   User, Phone, Mail, Globe, Building, MapPin, Smartphone, Star,
-  Save, X, Layers, CreditCard, Layout, QrCode, Upload
+  Save, X, Layout, QrCode, Upload, Sparkles
 } from 'lucide-react';
 import { CanvasItem, CanvasItemStyle, ToolType } from '../types';
 import html2canvas from 'html2canvas';
 import { QRCodeCanvas } from 'qrcode.react';
+import { polishText } from '../services/geminiService';
 
 interface VisitingCardProps {
   onBack: () => void;
 }
 
-// Card Dimensions (3.5 x 2 inches @ ~150 DPI for screen)
 const CARD_WIDTH = 600;
 const CARD_HEIGHT = 350;
-const CARD_GAP = 40; // Gap between front and back side in double mode
+const CARD_GAP = 40; 
 
 const FONTS = ['Inter', 'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Helvetica'];
 
@@ -47,7 +47,6 @@ const SIDEBAR_TOOLS = [
 ];
 
 export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
-  // Synchronous State Initialization to prevent flicker
   const getInitialState = () => {
       const savedData = localStorage.getItem('smart-creator-card-draft');
       let initialHistory: CanvasItem[][] = [[]];
@@ -61,7 +60,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
                   initialHistory = [parsed];
                   initialShowModal = false;
               } else if (parsed.items) {
-                  // Handle legacy vs new
                   initialHistory = [Array.isArray(parsed.items) ? parsed.items : []];
                   initialLayout = parsed.layoutMode || 'single';
                   initialShowModal = false;
@@ -73,23 +71,19 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
   
   const initialState = getInitialState();
 
-  // Setup & Layout State
   const [showLayoutModal, setShowLayoutModal] = useState(initialState.showModal);
   const [layoutMode, setLayoutMode] = useState<'single' | 'double'>(initialState.layout as any);
 
-  // History & Editor State
   const [history, setHistory] = useState<CanvasItem[][]>(initialState.history);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
   const [clipboard, setClipboard] = useState<CanvasItem | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
-  
-  // QR State
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
   
-  // Dragging
   const [isDragging, setIsDragging] = useState(false);
   const dragItemRef = useRef<string | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -101,13 +95,10 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
   const items = history[historyIndex] || [];
   const selectedItem = items.find(i => i.id === selectedItemId);
 
-  // --- Actions ---
-
   const handleLayoutSelection = (mode: 'single' | 'double') => {
     setLayoutMode(mode);
     setShowLayoutModal(false);
     
-    // Initialize blank canvas based on mode
     const initialItems: CanvasItem[] = [
         { id: 'bg-front', type: 'SHAPE', x: 0, y: 0, data: { shapeType: 'rectangle' }, style: { width: CARD_WIDTH, height: CARD_HEIGHT, backgroundColor: '#ffffff', borderWidth: 0 } }
     ];
@@ -162,14 +153,13 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
 
   const downloadCard = async () => {
     if (cardRef.current) {
-      setSelectedItemId(null); // Deselect to hide handles
+      setSelectedItemId(null);
       setTimeout(async () => {
         if (!cardRef.current) return;
-        // Adjust scale for high quality print
         const canvas = await html2canvas(cardRef.current, { 
             scale: 3, 
             backgroundColor: null,
-            height: cardRef.current.scrollHeight // Ensure full height capture
+            height: cardRef.current.scrollHeight 
         });
         const image = canvas.toDataURL("image/png");
         const link = document.createElement("a");
@@ -214,7 +204,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
           const result = event.target?.result;
           if (typeof result === 'string') {
             const parsed = JSON.parse(result);
-            // Handle both array format and object format with layoutMode
             if (Array.isArray(parsed)) {
                  setItems(parsed);
             } else if (parsed.items) {
@@ -233,8 +222,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
     }
     if (importFileRef.current) importFileRef.current.value = '';
   };
-
-  // --- CRUD ---
 
   const addItem = (type: ToolType, extraData: any = {}, extraStyle: CanvasItemStyle = {}, xPos?: number, yPos?: number) => {
     const newItem: CanvasItem = {
@@ -282,15 +269,19 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
      setItems(newItems);
   };
 
-  // --- Templates ---
+  const handleAiPolish = async () => {
+      if (!selectedItem || selectedItem.type !== 'TEXT') return;
+      setIsAiLoading(true);
+      const polished = await polishText(selectedItem.data.text);
+      updateItemData('text', polished);
+      setIsAiLoading(false);
+  };
 
   const loadTemplate = (index: number) => {
-    // Determine background color based on template
     let bgCol = '#ffffff';
     if (index === 0) bgCol = '#101010';
     if (index === 2) bgCol = '#1e3a8a';
 
-    // Base items (Backgrounds)
     let newItems: CanvasItem[] = [
         { id: 'bg-front', type: 'SHAPE', x: 0, y: 0, data: { shapeType: 'rectangle' }, style: { width: CARD_WIDTH, height: CARD_HEIGHT, backgroundColor: bgCol, borderWidth: 0 } }
     ];
@@ -301,9 +292,8 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
         );
     }
 
-    // Template Specific Items
     switch(index) {
-        case 0: // Classic Dark
+        case 0:
             newItems.push(
                 { id: 't1', type: 'TEXT', x: 40, y: 60, data: { text: 'ALEXANDER DOE' }, style: { ...DEFAULT_STYLE, fontSize: 28, color: '#ffffff', fontWeight: 'bold' } },
                 { id: 't2', type: 'TEXT', x: 40, y: 100, data: { text: 'Senior Software Architect' }, style: { ...DEFAULT_STYLE, fontSize: 14, color: '#B2E800' } },
@@ -314,7 +304,7 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
                 { id: 's1', type: 'SHAPE', x: 450, y: -50, data: { shapeType: 'circle' }, style: { width: 200, height: 200, backgroundColor: '#1a1a1a' } }
             );
             break;
-        case 1: // Elegant White
+        case 1:
             newItems.push(
                 { id: 't1', type: 'TEXT', x: 300, y: 120, data: { text: 'SARAH CONNOR' }, style: { ...DEFAULT_STYLE, fontSize: 24, color: '#000000', textAlign: 'center', fontWeight: 'bold' } },
                 { id: 't2', type: 'TEXT', x: 300, y: 155, data: { text: 'Creative Director' }, style: { ...DEFAULT_STYLE, fontSize: 14, color: '#666666', textAlign: 'center', fontStyle: 'italic' } },
@@ -323,7 +313,7 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
                 { id: 'b1', type: 'SHAPE', x: 20, y: 20, data: { shapeType: 'rectangle' }, style: { width: CARD_WIDTH - 40, height: CARD_HEIGHT - 40, borderColor: '#000000', borderWidth: 2, backgroundColor: 'transparent' } }
             );
             break;
-        case 2: // Ocean Blue
+        case 2:
             newItems.push(
                 { id: 's1', type: 'SHAPE', x: 0, y: 0, data: { shapeType: 'rectangle' }, style: { width: 20, height: CARD_HEIGHT, backgroundColor: '#60a5fa' } },
                 { id: 't1', type: 'TEXT', x: 50, y: 50, data: { text: 'JOHN SMITH' }, style: { ...DEFAULT_STYLE, fontSize: 32, color: '#ffffff', fontWeight: 'bold' } },
@@ -337,8 +327,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
     setSelectedItemId(null);
   };
 
-  // --- Interaction Handlers ---
-
   const handleToolSelect = (toolId: string) => {
     setSelectedTool(toolId);
     setSelectedItemId(null);
@@ -350,14 +338,12 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        // Valid click area logic
         const clickedFront = (y >= 0 && y <= CARD_HEIGHT);
         const clickedBack = layoutMode === 'double' && (y >= CARD_HEIGHT + CARD_GAP && y <= CARD_HEIGHT * 2 + CARD_GAP);
 
         if (clickedFront || clickedBack) {
             const tool = SIDEBAR_TOOLS.find(t => t.id === selectedTool);
             if (tool) {
-                // Apply specific styling based on the tool type for a better default look
                 let customStyle: Partial<CanvasItemStyle> = {};
                 switch(tool.id) {
                     case 'NAME':
@@ -378,21 +364,16 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
                         break;
                 }
 
-                // Adjust x/y to center the text roughly where clicked
                 addItem('TEXT', { text: tool.defaultText }, customStyle, x - 50, y - 10);
             }
             setSelectedTool(null);
         }
-    } else {
-        // Deselect if clicking on empty space (handled by wrapper click but good to have safety)
     }
   };
 
   const handleMouseDown = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    // Prevent dragging background
     if (id.startsWith('bg-')) return;
-
     dragItemRef.current = id;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -437,8 +418,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // --- Renderers ---
-
   const renderToolbar = () => {
     const s = selectedItem?.style || {};
     const hasSelection = !!selectedItem && !selectedItem.id.startsWith('bg-');
@@ -446,14 +425,11 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
 
     return (
       <div className="h-16 bg-white border-b border-gray-200 flex items-center px-4 gap-2 overflow-x-auto shadow-sm select-none z-20 text-gray-900 shrink-0 whitespace-nowrap">
-        
-        {/* History */}
         <div className="flex gap-1 pr-2 border-r border-gray-200 shrink-0">
           <button onClick={undo} disabled={historyIndex === 0} className="p-2 hover:bg-gray-100 rounded text-gray-700 disabled:opacity-30"><Undo size={18} /></button>
           <button onClick={redo} disabled={historyIndex === history.length - 1} className="p-2 hover:bg-gray-100 rounded text-gray-700 disabled:opacity-30"><Redo size={18} /></button>
         </div>
 
-        {/* Text Styling (Only if Text selected) */}
         <div className={`flex gap-2 items-center pr-2 border-r border-gray-200 shrink-0 ${!isText ? 'opacity-40 pointer-events-none' : ''}`}>
            <select 
              value={s.fontFamily || 'Inter'} 
@@ -483,14 +459,8 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
              <button onClick={() => updateItemStyle({ textDecoration: s.textDecoration === 'underline' ? 'none' : 'underline' })} className={`p-1.5 rounded ${s.textDecoration === 'underline' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}><Underline size={16} /></button>
              <button onClick={() => updateItemStyle({ textDecoration: s.textDecoration === 'line-through' ? 'none' : 'line-through' })} className={`p-1.5 rounded ${s.textDecoration === 'line-through' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}><Strikethrough size={16} /></button>
            </div>
-           <div className="flex gap-0.5">
-             <button onClick={() => updateItemStyle({ textAlign: 'left' })} className={`p-1.5 rounded ${s.textAlign === 'left' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}><AlignLeft size={16} /></button>
-             <button onClick={() => updateItemStyle({ textAlign: 'center' })} className={`p-1.5 rounded ${s.textAlign === 'center' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}><AlignCenter size={16} /></button>
-             <button onClick={() => updateItemStyle({ textAlign: 'right' })} className={`p-1.5 rounded ${s.textAlign === 'right' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}><AlignRight size={16} /></button>
-           </div>
         </div>
 
-        {/* Colors (RGB) */}
         <div className="flex items-center gap-2 pr-2 border-r border-gray-200 shrink-0">
            <div className={`flex flex-col items-center group relative ${!hasSelection ? 'opacity-40 pointer-events-none' : ''}`}>
              <label className="text-[9px] text-gray-500 uppercase font-bold">Text</label>
@@ -514,7 +484,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
            </div>
         </div>
 
-        {/* Clipboard */}
         <div className="flex gap-1 pr-2 border-r border-gray-200 shrink-0">
            <button onClick={() => { if(selectedItem) { setClipboard(selectedItem); removeItem(); } }} disabled={!hasSelection} className="p-2 hover:bg-gray-100 rounded text-gray-700 disabled:opacity-30" title="Cut"><Scissors size={18} /></button>
            <button onClick={() => selectedItem && setClipboard(selectedItem)} disabled={!hasSelection} className="p-2 hover:bg-gray-100 rounded text-gray-700 disabled:opacity-30" title="Copy"><Copy size={18} /></button>
@@ -522,7 +491,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
            <button onClick={removeItem} disabled={!hasSelection} className="p-2 hover:bg-red-100 text-red-500 rounded disabled:opacity-30" title="Delete"><Trash2 size={18} /></button>
         </div>
 
-        {/* Insert Tools */}
         <div className="flex gap-2 items-center pr-2 border-r border-gray-200 shrink-0">
            <button onClick={() => addItem('TEXT', { text: 'New Text' })} className="flex flex-col items-center p-1 hover:bg-gray-100 rounded text-xs text-gray-600">
               <Type size={18} /> <span className="text-[10px]">Text</span>
@@ -537,14 +505,8 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
              <button onClick={() => addItem('SHAPE', { shapeType: 'circle' }, { width: 100, height: 100, backgroundColor: '#B2E800', borderRadius: 999 })} className="p-2 hover:bg-gray-100 rounded" title="Circle"><Circle size={16} /></button>
              <button onClick={() => addItem('SHAPE', { shapeType: 'line' }, { width: 100, height: 4, backgroundColor: '#000000' })} className="p-2 hover:bg-gray-100 rounded" title="Line"><Minus size={16} /></button>
            </div>
-
-           <div className="flex gap-0.5 ml-1 border-l pl-2">
-             <button onClick={() => addItem('LIST', { items: ['Item 1', 'Item 2', 'Item 3'], ordered: false }, { width: 200 })} className="p-2 hover:bg-gray-100 rounded" title="Bullet List"><List size={16} /></button>
-             <button onClick={() => addItem('LIST', { items: ['1. Item', '2. Item', '3. Item'], ordered: true }, { width: 200 })} className="p-2 hover:bg-gray-100 rounded" title="Numbered List"><ListOrdered size={16} /></button>
-           </div>
         </div>
 
-        {/* Templates */}
         <div className="flex gap-2 items-center shrink-0">
             <span className="text-xs font-bold text-gray-400">Templates:</span>
             <div className="flex gap-1">
@@ -614,7 +576,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
         className={`group ${isSelected ? 'ring-1 ring-brand-lime' : isBg ? '' : 'hover:ring-1 hover:ring-gray-300/50'}`}
       >
         {content}
-        {/* Resize Handle (Simplified for now - just indicator) */}
         {isSelected && item.type !== 'TEXT' && !isBg && (
              <div className="absolute bottom-0 right-0 w-3 h-3 bg-brand-lime cursor-se-resize" />
         )}
@@ -629,7 +590,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
         <p className="text-gray-400 mb-10">Choose how you want to design your visiting card</p>
         
         <div className="flex flex-wrap justify-center gap-6 md:gap-10">
-            {/* Cancel */}
             <button 
                 onClick={onBack} 
                 className="w-32 h-32 md:w-40 md:h-40 bg-brand-gray border border-white/10 hover:border-red-500/50 hover:bg-red-500/10 rounded-2xl flex flex-col items-center justify-center gap-4 transition-all group shadow-xl"
@@ -639,8 +599,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
                 </div>
                 <span className="text-gray-300 font-medium group-hover:text-red-400">Cancel</span>
             </button>
-
-            {/* One Sided */}
             <button 
                 onClick={() => handleLayoutSelection('single')} 
                 className="w-32 h-32 md:w-40 md:h-40 bg-brand-gray border border-white/10 hover:border-brand-lime hover:bg-brand-lime/5 rounded-2xl flex flex-col items-center justify-center gap-4 transition-all group shadow-xl hover:-translate-y-2"
@@ -648,8 +606,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
                 <div className="w-16 h-10 border-2 border-gray-500 bg-white/5 rounded group-hover:border-brand-lime group-hover:shadow-[0_0_15px_rgba(178,232,0,0.3)] transition-all"></div>
                 <span className="text-gray-300 font-medium group-hover:text-brand-lime">One Sided</span>
             </button>
-
-            {/* Both Sides */}
             <button 
                 onClick={() => handleLayoutSelection('double')} 
                 className="w-32 h-32 md:w-40 md:h-40 bg-brand-gray border border-white/10 hover:border-brand-lime hover:bg-brand-lime/5 rounded-2xl flex flex-col items-center justify-center gap-4 transition-all group shadow-xl hover:-translate-y-2"
@@ -669,7 +625,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
 
   return (
     <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh-64px)] overflow-hidden">
-      {/* Sidebar Panel */}
       <div className="w-full lg:w-80 flex flex-col border-r border-white/10 bg-brand-black z-10 shadow-xl h-full flex-shrink-0">
           <div className="p-4 border-b border-white/10 flex justify-between items-center bg-brand-black">
               <button onClick={onBack} className="flex items-center text-gray-400 hover:text-white transition-colors text-sm">
@@ -736,28 +691,34 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
           </div>
       </div>
 
-      {/* Right Panel Container */}
       <div className="flex-1 flex flex-col bg-gray-100">
           
-          {/* Top Header/Toolbar */}
           {renderToolbar()}
 
-          {/* Quick Edit Bar */}
           {selectedItem?.type === 'TEXT' && (
-             <div className="h-10 bg-gray-800 border-b border-gray-700 flex items-center px-4">
-                 <Type size={14} className="text-gray-400 mr-2" />
-                 <input 
-                   type="text" 
-                   value={selectedItem.data.text} 
-                   onChange={(e) => updateItemData('text', e.target.value)}
-                   className="bg-transparent text-white text-sm outline-none w-full"
-                   placeholder="Edit text content..."
-                   autoFocus
-                 />
+             <div className="h-10 bg-gray-800 border-b border-gray-700 flex items-center px-4 justify-between">
+                 <div className="flex items-center flex-1 mr-4">
+                     <Type size={14} className="text-gray-400 mr-2" />
+                     <input 
+                       type="text" 
+                       value={selectedItem.data.text} 
+                       onChange={(e) => updateItemData('text', e.target.value)}
+                       className="bg-transparent text-white text-sm outline-none w-full"
+                       placeholder="Edit text content..."
+                       autoFocus
+                     />
+                 </div>
+                 <button 
+                    onClick={handleAiPolish}
+                    disabled={isAiLoading}
+                    className="text-xs flex items-center gap-1 text-brand-lime hover:text-white transition-colors disabled:opacity-50"
+                 >
+                    <Sparkles size={12} />
+                    {isAiLoading ? 'Polishing...' : 'AI Polish'}
+                 </button>
              </div>
           )}
           
-          {/* Canvas Area */}
           <div className="flex-1 overflow-auto bg-gray-200 flex items-start justify-center p-10 relative cursor-default"
                onMouseMove={handleMouseMove}
                onMouseUp={handleMouseUp}
@@ -792,10 +753,8 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
                 }}
                 onClick={handleCanvasClick}
                 >
-                    {/* Render standard canvas items */}
                     {items.map(renderCanvasItem)}
 
-                    {/* Shadow/Container Visualization for gap if double */}
                     {layoutMode === 'double' && (
                         <div className="absolute left-0 right-0 pointer-events-none border-t border-b border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400" 
                             style={{
@@ -811,7 +770,6 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
           </div>
       </div>
 
-       {/* QR Code Modal */}
        {showQrModal && qrUrl && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
             <div className="bg-brand-gray border border-white/10 rounded-2xl p-8 max-w-sm w-full relative">
@@ -822,15 +780,12 @@ export const VisitingCard: React.FC<VisitingCardProps> = ({ onBack }) => {
                     <X size={20} />
                 </button>
                 <h3 className="text-xl font-bold text-white mb-6 text-center">Card QR</h3>
-                
                 <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-fit">
                     <QRCodeCanvas value={qrUrl} size={200} level="M" />
                 </div>
-                
                 <p className="text-center text-xs text-gray-400 mb-6">
                     Scan to open the card image (same device only) or click below to download.
                 </p>
-
                 <a 
                     href={qrUrl} 
                     download={`Card-${layoutMode}.png`}
